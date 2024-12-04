@@ -77,11 +77,18 @@ WSGI_APPLICATION = "rbac_project.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "djongo",
+        "NAME": "rbac_db",  
+        "CLIENT": {
+            "host": "mongodb+srv://mohanganivada009:Jbs5p3KVImycBVex@cluster0.k46kt.mongodb.net/rbac_db?retryWrites=true&w=majority",
+            "authSource": "admin", 
+            "authMechanism": "SCRAM-SHA-1", 
+        },
+        "ENFORCE_SCHEMA": False,
+        "MONGO_URI_PATH": False,
+        "MONGO_AUTH": True,
     }
 }
-
 
 
 # Password validation

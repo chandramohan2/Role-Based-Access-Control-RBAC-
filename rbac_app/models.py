@@ -31,14 +31,18 @@ class Permission(models.Model):
     def __str__(self):
         return f"{self.resource}:{self.action}"
 
-
 class AuditLog(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)  # UUID as the primary key
+    id = models.CharField(primary_key=True, max_length=50, unique=True, default="")
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     resource = models.CharField(max_length=255)
     action = models.CharField(max_length=255)
     outcome = models.CharField(max_length=50)  # "granted" or "denied"
     timestamp = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.user.username} - {self.resource} - {self.outcome} - {self.timestamp}"
+    def save(self, *args, **kwargs):
+        if not self.id:  # Generate id only if not provided
+            self.id = 'auditlog-' + str(uuid.uuid4())
+        super(AuditLog, self).save(*args, **kwargs)
+
+    class Meta:
+        db_table = 'audit_logs'  # MongoDB collection or DB table name for the AuditLog model

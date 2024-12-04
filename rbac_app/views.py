@@ -4,6 +4,7 @@ from rest_framework import status
 from .models import User, Role, Permission, AuditLog
 from .serializers import UserSerializer, RoleSerializer, PermissionSerializer, AuditLogSerializer
 
+
 class UserManagementView(APIView):
     def post(self, request):
         serializer = UserSerializer(data=request.data)
@@ -11,12 +12,12 @@ class UserManagementView(APIView):
             serializer.save()
             return Response({
                 "success": True,
-                "message": "User created successfully",
+                "message": "User created successfully.",
                 "data": serializer.data
             }, status=status.HTTP_201_CREATED)
         return Response({
             "success": False,
-            "message": "Invalid data",
+            "message": "Invalid data.",
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
@@ -33,12 +34,12 @@ class RoleManagementView(APIView):
             serializer.save()
             return Response({
                 "success": True,
-                "message": "Role created successfully",
+                "message": "Role created successfully.",
                 "data": serializer.data
             }, status=status.HTTP_201_CREATED)
         return Response({
             "success": False,
-            "message": "Invalid data",
+            "message": "Invalid data.",
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
@@ -55,12 +56,12 @@ class PermissionManagementView(APIView):
             serializer.save()
             return Response({
                 "success": True,
-                "message": "Permission created successfully",
+                "message": "Permission created successfully.",
                 "data": serializer.data
             }, status=status.HTTP_201_CREATED)
         return Response({
             "success": False,
-            "message": "Invalid data",
+            "message": "Invalid data.",
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
@@ -72,43 +73,28 @@ class PermissionManagementView(APIView):
 
 class AccessValidationView(APIView):
     def post(self, request):
-        # Extract user and permission data from the request body
         user_id = request.data.get('user_id')
         permission_name = request.data.get('permission_name')
 
         try:
-            # Retrieve user and permission from the database
-            user = User.objects.get(id=user_id)
+            user = User.objects.get(_id=user_id)
             permission = Permission.objects.get(name=permission_name)
-            
-            # Check if user has the permission
-            has_permission = False
-            for role in user.roles.all():
-                if permission in role.permissions.all():
-                    has_permission = True
-                    break
+
+            # Check if the user has the permission
+            has_permission = any(
+                permission in role.permissions.all()
+                for role in user.roles.all()
+            )
 
             if has_permission:
-                return Response({
-                    "success": True,
-                    "message": "Access granted"
-                }, status=status.HTTP_200_OK)
+                return Response({"success": True, "message": "Access granted."})
             else:
-                return Response({
-                    "success": False,
-                    "message": "Access denied"
-                }, status=status.HTTP_403_FORBIDDEN)
+                return Response({"success": False, "message": "Access denied."}, status=status.HTTP_403_FORBIDDEN)
 
         except User.DoesNotExist:
-            return Response({
-                "success": False,
-                "message": "User not found"
-            }, status=status.HTTP_404_NOT_FOUND)
+            return Response({"success": False, "message": "User not found."}, status=status.HTTP_404_NOT_FOUND)
         except Permission.DoesNotExist:
-            return Response({
-                "success": False,
-                "message": "Permission not found"
-            }, status=status.HTTP_404_NOT_FOUND)
+            return Response({"success": False, "message": "Permission not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
 class AuditLogView(APIView):

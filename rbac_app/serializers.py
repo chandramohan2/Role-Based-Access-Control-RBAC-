@@ -1,33 +1,44 @@
 from rest_framework import serializers
 from .models import User, Role, Permission, AuditLog
 
-class UserSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(read_only=True)  
 
+class PermissionSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'roles', 'is_active', 'is_admin']
+        model = Permission
+        fields = ['_id', 'name', 'resource', 'action']
 
 
 class RoleSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(read_only=True)
+    permissions = PermissionSerializer(many=True, read_only=True)
+    permissions_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Permission.objects.all(),
+        many=True,
+        write_only=True,
+        source='permissions'
+    )
 
     class Meta:
         model = Role
-        fields = ['id', 'name', 'permissions']
+        fields = ['_id', 'name', 'permissions', 'permissions_ids']
 
 
-class PermissionSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(read_only=True)
+class UserSerializer(serializers.ModelSerializer):
+    roles = RoleSerializer(many=True, read_only=True)
+    roles_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Role.objects.all(),
+        many=True,
+        write_only=True,
+        source='roles'
+    )
 
     class Meta:
-        model = Permission
-        fields = ['id', 'name', 'resource', 'action']
+        model = User
+        fields = ['_id', 'username', 'email', 'is_active', 'is_admin', 'roles', 'roles_ids']
 
 
 class AuditLogSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(read_only=True)
+    user = UserSerializer(read_only=True)
 
     class Meta:
         model = AuditLog
-        fields = ['id', 'user', 'resource', 'action', 'outcome', 'timestamp']
+        fields = ['_id', 'user', 'resource', 'action', 'outcome', 'timestamp']

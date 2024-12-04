@@ -4,6 +4,13 @@ from rest_framework import status
 from .models import User, Role, Permission, AuditLog
 from django.core.exceptions import ObjectDoesNotExist
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.core.exceptions import ObjectDoesNotExist
+from .models import User, Role  # Assuming you have User and Role models defined
+from bson import ObjectId
+
 class UserManagementView(APIView):
     def post(self, request):
         username = request.data.get('username')
@@ -19,10 +26,21 @@ class UserManagementView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            # Create the user
             user = User.objects.create(username=username, email=email, is_active=is_active, is_admin=is_admin)
+
+            # Loop through the role ids and add them
             for role_id in roles:
-                role = Role.objects.get(id=role_id)
-                user.roles.add(role)
+                # Convert string to ObjectId
+                role_id = ObjectId(role_id) if isinstance(role_id, str) else role_id
+                try:
+                    role = Role.objects.get(id=role_id)
+                    user.roles.add(role)
+                except Role.DoesNotExist:
+                    return Response({
+                        "success": False,
+                        "message": f"Role with id {role_id} does not exist."
+                    }, status=status.HTTP_404_NOT_FOUND)
 
             return Response({
                 "success": True,
@@ -35,11 +53,7 @@ class UserManagementView(APIView):
                     "is_admin": user.is_admin,
                 }
             }, status=status.HTTP_201_CREATED)
-        except ObjectDoesNotExist as e:
-            return Response({
-                "success": False,
-                "message": f"Role not found: {str(e)}"
-            }, status=status.HTTP_404_NOT_FOUND)
+
         except Exception as e:
             return Response({
                 "success": False,
@@ -60,6 +74,7 @@ class UserManagementView(APIView):
             "success": True,
             "data": user_data
         })
+
 
 class RoleManagementView(APIView):
     def post(self, request):

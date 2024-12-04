@@ -1,33 +1,46 @@
 from rest_framework import serializers
 from .models import User, Role, Permission, AuditLog
+from bson import ObjectId
 
+# Custom field to handle ObjectId in MongoDB
+class ObjectIdField(serializers.Field):
+    def to_representation(self, value):
+        return str(value)
+
+    def to_internal_value(self, data):
+        return ObjectId(data)
+
+# User Serializer
 class UserSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(read_only=True)  
+    id = ObjectIdField()  # Serialize ObjectId as string
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'roles', 'is_active', 'is_admin']
+        fields = '__all__'
 
 
+# Role Serializer
 class RoleSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(read_only=True)
+    id = ObjectIdField()
 
     class Meta:
         model = Role
-        fields = ['id', 'name', 'permissions']
+        fields = '__all__'
 
 
+# Permission Serializer
 class PermissionSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(read_only=True)
+    id = ObjectIdField()
 
     class Meta:
         model = Permission
-        fields = ['id', 'name', 'resource', 'action']
+        fields = '__all__'
 
 
+# AuditLog Serializer
 class AuditLogSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(read_only=True)
+    id = ObjectIdField()
 
     class Meta:
         model = AuditLog
-        fields = ['id', 'user', 'resource', 'action', 'outcome', 'timestamp']
+        fields = '__all__'

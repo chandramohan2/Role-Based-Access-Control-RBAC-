@@ -11,6 +11,13 @@ from django.core.exceptions import ObjectDoesNotExist
 from .models import User, Role  # Assuming you have User and Role models defined
 from bson import ObjectId
 
+from bson import ObjectId  # For handling ObjectId
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import User, Role
+from django.core.exceptions import ObjectDoesNotExist
+
 class UserManagementView(APIView):
     def post(self, request):
         username = request.data.get('username')
@@ -29,12 +36,14 @@ class UserManagementView(APIView):
             # Create the user
             user = User.objects.create(username=username, email=email, is_active=is_active, is_admin=is_admin)
 
-            # Loop through the role ids and add them
+            # Link roles
             for role_id in roles:
-                # Convert string to ObjectId
-                role_id = ObjectId(role_id) if isinstance(role_id, str) else role_id
                 try:
-                    role = Role.objects.get(id=role_id)
+                    # Convert role_id to ObjectId if needed
+                    if isinstance(role_id, str):
+                        role_id = ObjectId(role_id)
+
+                    role = Role.objects.get(pk=role_id)  # Use pk to match ObjectId
                     user.roles.add(role)
                 except Role.DoesNotExist:
                     return Response({
@@ -59,21 +68,6 @@ class UserManagementView(APIView):
                 "success": False,
                 "message": f"Error: {str(e)}"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    def get(self, request):
-        users = User.objects.all()
-        user_data = [{
-            "username": user.username,
-            "email": user.email,
-            "roles": [role.name for role in user.roles.all()],
-            "is_active": user.is_active,
-            "is_admin": user.is_admin,
-        } for user in users]
-
-        return Response({
-            "success": True,
-            "data": user_data
-        })
 
 
 class RoleManagementView(APIView):

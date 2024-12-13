@@ -1,122 +1,216 @@
-from django.http import JsonResponse
-import json
-from .models import *
+# views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from django.contrib.auth.hashers import make_password
+from .models import User, Permission, RolePermission, AuditLog
 
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from .models import User
-import json
+class UserListCreateView(APIView):
+    def get(self, request):
+        users = User.objects.all()
+        users_data = [{
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'first_name': user.first_name,
+            'last_name': user.last_name
+        } for user in users]
+        return Response(users_data)
 
+    def post(self, request):
+        if request.data.get('role') != User.Role.ADMIN:
+            return Response(
+                {'error': 'Only admin can create users'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
-@csrf_exempt
-def create_user(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        username = data.get('username')
-        password = data.get('password')
-        email = data.get('email')
-
-        if not username or not password:
-            return JsonResponse({"success": False, "message": "Username and password are required"})
-
-        if User.objects.filter(username=username).exists():
-            return JsonResponse({"success": False, "message": "Username already exists"})
-
-        user = User.objects.create(username=username, password=password, email=email)
-        return JsonResponse({"success": True, "message": "User created successfully", "data": {"username": user.username}})
-
-from .models import Role
-
-
-@csrf_exempt
-def assign_role(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        username = data.get('username')
-        role_name = data.get('role')
+        data = request.data
+        data['password'] = make_password(data.get('password'))
 
         try:
-            user = User.objects.get(username=username)
-            role = Role.objects.get(name=role_name)
-            user.roles.add(role)
-            return JsonResponse({"success": True, "message": f"Role {role_name} assigned to {username}"})
-        except User.DoesNotExist:
-            return JsonResponse({"success": False, "message": "User not found"})
-        except Role.DoesNotExist:
-            return JsonResponse({"success": False, "message": "Role not found"})
+            user = User.objects.create(**data)
+            return Response({
+                'id': str(user.id),  # Convert ObjectId to string
+                'username': user.username,
+                'email': user.email,
+                'role': user.role
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
-@csrf_exempt
-def create_role(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        role_name = data.get('role_name')
+class UserDetailView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(User, id=user_id)
+        return Response({
+            'id': str(user.id),
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'first_name': user.first_name,
+            'last_name': user.last_name
+        })
 
-        if not role_name:
-            return JsonResponse({"success": False, "message": "Role name is required"})
+    def put(self, request, user_id):
+        if request.user.role != User.Role.ADMIN:
+            return Response(
+                {'error': 'Only admin can update users'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
-        role, created = Role.objects.get_or_create(name=role_name)
-        if created:
-            return JsonResponse({"success": True, "message": "Role created successfully"})
+        user = get_object_or_404(User, id=user_id)
+        data = request.data
+
+        for key, value in data.items():
+            if key == 'password':
+                value = make_password(value)
+            setattr(user, key, value)
+
+        user.save()
+        return Response({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'role': user.role
+        })
+
+    def delete(self, request, user_id):
+        if request.user.role != User.Role.ADMIN:
+            return Response(
+                {'error': 'Only admin can delete users'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        user = get_object_or_404(User, id=user_id)
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class PermissionListCreateView(APIView):
+    def get(self, request):
+        permissions = Permission.objects.all()
+        permissions_data = [{
+            'id': perm.id,
+            'name': perm.name,
+            'codename': perm.codename,
+            'description': perm.description
+        } for perm in permissions]
+        return Response(permissions_data)
+
+    def post(self, request):
+        # if request.data.get('role') != User.Role.ADMIN:
+        #     return Response(
+        #         {'error': 'Only admin can create permissions'},
+        #         status=status.HTTP_403_FORBIDDEN
+        #     )
+
+        try:
+            permission = Permission.objects.create(**request.data)
+            return Response({
+                'id': permission.id,
+                'name': permission.name,
+                'codename': permission.codename,
+                'description': permission.description
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+class RolePermissionListCreateView(APIView):
+    def get(self, request):
+        role_permissions = RolePermission.objects.all()
+        data = [{
+            'id': rp.id,
+            'role': rp.role,
+            'permission': {
+                'id': rp.permission.id,
+                'name': rp.permission.name,
+                'codename': rp.permission.codename
+            }
+        } for rp in role_permissions]
+        return Response(data)
+
+    def post(self, request):
+        # if request.user.role != User.Role.ADMIN:
+        #     return Response(
+        #         {'error': 'Only admin can assign permissions to roles'},
+        #         status=status.HTTP_403_FORBIDDEN
+        #     )
+
+        try:
+            role_perm = RolePermission.objects.create(
+                role=request.data.get('role'),
+                permission_id=request.data.get('permission_id')
+            )
+            return Response({
+                'id': str(role_perm.id),
+                'role': role_perm.role,
+                'permission': {
+                    'id': role_perm.permission.id,
+                    'name': role_perm.permission.name
+                }
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+class ValidateAccessView(APIView):
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        permission_codename = request.data.get('permission')
+
+        if not user_id or not permission_codename:
+            return Response(
+                {'error': 'Both user_id and permission are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = get_object_or_404(User, id= user_id)
+        permission = get_object_or_404(Permission, codename=permission_codename)
+
+        has_permission = (
+            user.role == User.Role.ADMIN or
+            RolePermission.objects.filter(
+                role=user.role,
+                permission=permission
+            ).exists()
+        )
+
+        AuditLog.objects.create(
+            user=user,
+            action='permission_check',
+            resource=permission.codename,
+            success=has_permission,
+            details=f"Checked permission: {permission.name}"
+        )
+
+        return Response({'has_permission': has_permission})
+
+class AuditLogListView(APIView):
+    def get(self, request):
+        if request.user.role != User.Role.ADMIN:
+            logs = AuditLog.objects.filter(user=request.user)
         else:
-            return JsonResponse({"success": False, "message": "Role already exists"})
+            logs = AuditLog.objects.all()
 
+        logs = logs.order_by('-timestamp')
+        logs_data = [{
+            'id': log.id,
+            'user': log.user.username,
+            'action': log.action,
+            'resource': log.resource,
+            'timestamp': log.timestamp,
+            'success': log.success,
+            'details': log.details
+        } for log in logs]
 
-from .models import Permission
-
-
-@csrf_exempt
-def assign_permission_to_role(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        role_name = data.get('role_name')
-        permission_name = data.get('permission_name')
-
-        try:
-            role = Role.objects.get(name=role_name)
-            permission = Permission.objects.get(name=permission_name)
-            role.permissions.add(permission)
-            return JsonResponse({"success": True, "message": f"Permission {permission_name} assigned to role {role_name}"})
-        except Role.DoesNotExist:
-            return JsonResponse({"success": False, "message": "Role not found"})
-        except Permission.DoesNotExist:
-            return JsonResponse({"success": False, "message": "Permission not found"})
-
-
-@csrf_exempt
-def create_permission(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        name = data.get('name')
-        resource = data.get('resource')
-        action = data.get('action')
-
-        if not all([name, resource, action]):
-            return JsonResponse({"success": False, "message": "All fields are required"})
-
-        permission, created = Permission.objects.get_or_create(name=name, resource=resource, action=action)
-        if created:
-            return JsonResponse({"success": True, "message": "Permission created successfully"})
-        else:
-            return JsonResponse({"success": False, "message": "Permission already exists"})
-
-@csrf_exempt
-def validate_access(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        username = data.get('username')
-        resource = data.get('resource')
-        action = data.get('action')
-
-        try:
-            user = User.objects.get(username=username)
-            permissions = Permission.objects.filter(roles__users=user, resource=resource, action=action)
-            if permissions.exists():
-                outcome = "Success"
-                return JsonResponse({"success": True, "message": "Access granted"})
-            else:
-                outcome = "Failure"
-                return JsonResponse({"success": False, "message": "Access denied"})
-        finally:
-            AuditLog.objects.create(user=user, resource=resource, action=action, outcome=outcome)
+        return Response(logs_data)
 

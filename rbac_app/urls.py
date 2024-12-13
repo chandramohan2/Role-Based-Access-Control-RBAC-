@@ -1,18 +1,24 @@
 from django.urls import path
 from .views import (
-    create_user,
-    assign_role,
-    create_role,
-    assign_permission_to_role,
-    create_permission,
-    validate_access,
+    UserListCreateView, UserDetailView,
+    PermissionListCreateView, RolePermissionListCreateView,
+    ValidateAccessView, AuditLogListView
 )
 
 urlpatterns = [
-    path('create-user/', create_user, name='create_user'),
-    path('assign-role/', assign_role, name='assign_role'),
-    path('create-role/', create_role, name='create_role'),
-    path('assign-permission-to-role/', assign_permission_to_role, name='assign_permission_to_role'),
-    path('create-permission/', create_permission, name='create_permission'),
-    path('validate-access/', validate_access, name='validate_access'),
+    # User Management URLs
+    path('users/', UserListCreateView.as_view(), name='user-list-create'),
+    path('users/<int:user_id>/', UserDetailView.as_view(), name='user-detail'),
+    
+    # Permission Management URLs
+    path('permissions/', PermissionListCreateView.as_view(), name='permission-list-create'),
+    
+    # Role Permission Management URLs
+    path('role-permissions/', RolePermissionListCreateView.as_view(), name='role-permission-list-create'),
+    
+    # Access Validation URL
+    path('validate-access/', ValidateAccessView.as_view(), name='validate-access'),
+    
+    # Audit Log URL
+    path('audit-logs/', AuditLogListView.as_view(), name='audit-log-list'),
 ]
